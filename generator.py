@@ -67,7 +67,9 @@ import json
 import random
 import argparse
 import itertools
+import threading
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional
 
@@ -433,8 +435,107 @@ def parse_chapter_filter(chapters_str: str) -> Optional[set]:
     return result if result else None
 
 
+ATP_CHAPTERS_TITLES = {
+    1: "IPB Fundamentals", 2: "IPB Support to Planning",
+    3: "Step 1\u2014Define OE", 4: "Step 2\u2014Describe Environmental Effects",
+    5: "Step 3\u2014Evaluate Threat", 6: "Step 4\u2014Determine Threat COAs",
+    7: "Unified Action/Unique Environments", 8: "Multi-Domain Considerations",
+}
+
+
+def _build_prompt(chunk_a: dict, qt: str, chunk_b: Optional[dict]) -> tuple[str, list[str]]:
+    """Build the generation prompt for a single task. Returns (prompt, source_chunks)."""
+    pid_a    = chunk_a.get("para_id", "")
+    ch_a     = chunk_a.get("chapter_num")
+    meta_a   = chunk_a.get("metadata", {})
+    ch_title_a = chunk_a.get("chapter_title") or ATP_CHAPTERS_TITLES.get(ch_a, f"Chapter {ch_a}")
+
+    if qt == "contrastive" and chunk_b:
+        pid_b      = chunk_b.get("para_id", "")
+        ch_b       = chunk_b.get("chapter_num")
+        ch_title_b = chunk_b.get("chapter_title") or ATP_CHAPTERS_TITLES.get(ch_b, f"Chapter {ch_b}")
+        prompt = CONTRASTIVE_TEMPLATE.format(
+            chapter_num_a  = ch_a,
+            chapter_title_a= ch_title_a,
+            para_id_a      = pid_a,
+            echelon_a      = meta_a.get("echelon", "general"),
+            text_a         = chunk_a.get("text", "")[:600],
+            chapter_num_b  = ch_b,
+            chapter_title_b= ch_title_b,
+            para_id_b      = pid_b,
+            echelon_b      = chunk_b.get("metadata", {}).get("echelon", "general"),
+            text_b         = chunk_b.get("text", "")[:600],
+            instruction    = TYPE_INSTRUCTIONS[qt],
+        )
+        return prompt, [pid_a, pid_b]
+    else:
+        prompt = GENERATION_TEMPLATE.format(
+            chapter_num  = ch_a,
+            chapter_title= ch_title_a,
+            para_id      = pid_a,
+            echelon      = meta_a.get("echelon", "general"),
+            text         = chunk_a.get("text", "")[:800],
+            instruction  = TYPE_INSTRUCTIONS[qt],
+        )
+        return prompt, [pid_a]
+
+
+def _process_task(task_args: tuple) -> Optional[tuple]:
+    """
+    Execute one generation task in a thread.
+    Returns (resume_key, seed_record, label) on success, None on failure.
+    Pure function — reads only module-level globals (BACKEND, MACHINE_ID, etc.).
+    """
+    i, total, chunk_a, qt, chunk_b, resume_key, done_count = task_args
+
+    pid_a  = chunk_a.get("para_id", "")
+    label  = f"[{i+1}/{total}] {pid_a} {qt}"
+
+    prompt, source_chunks = _build_prompt(chunk_a, qt, chunk_b)
+    raw  = generate(prompt, GENERATION_SYSTEM, GEN_TEMP)
+    pair = extract_json(raw) if raw else None
+
+    if pair is None:
+        print(f"  {label} ... FAILED (no JSON)", flush=True)
+        return None
+
+    passes, reason = validate_qa(pair, chunk_a, chunk_b)
+    if not passes:
+        print(f"  {label} ... FILTERED ({reason})", flush=True)
+        return None
+
+    meta_a = chunk_a.get("metadata", {})
+    seed_record = {
+        "qa_id":          None,          # assigned under lock in run()
+        "source_chunks":  source_chunks,
+        "question_type":  qt,
+        "question":       pair["question"].strip(),
+        "thinking_trace": pair.get("thinking_trace", "").strip(),
+        "answer":         pair["answer"].strip(),
+        "metadata": {
+            "ipb_step":           meta_a.get("ipb_step"),
+            "content_type":       meta_a.get("content_type", "doctrine"),
+            "echelon":            meta_a.get("echelon", "general"),
+            "domain":             meta_a.get("domain", "general"),
+            "environment":        meta_a.get("environment", "general"),
+            "difficulty":         pair.get("difficulty", "intermediate"),
+            "citation_paragraphs":pair.get("citation_paragraphs", source_chunks),
+        },
+    }
+    return resume_key, seed_record, label
+
+
 def run(enriched_path: str, seeds_path: str, target: int = TARGET_PAIRS,
-        seed: int = RANDOM_SEED, chapters_filter: Optional[set] = None) -> int:
+        seed: int = RANDOM_SEED, chapters_filter: Optional[set] = None,
+        workers: int = 1) -> int:
+    """
+    Generate QA pairs from enriched chunks and write to seeds_path.
+
+    workers=1  : sequential (default, original behaviour)
+    workers>1  : concurrent — N tasks in flight simultaneously, vLLM batches them.
+                 Recommended: workers=4 for a single vLLM instance on a DGX Spark.
+                 Monitor GPU utilisation and increase until it plateaus.
+    """
     Path(seeds_path).parent.mkdir(parents=True, exist_ok=True)
 
     # Load enriched chunks
@@ -452,9 +553,10 @@ def run(enriched_path: str, seeds_path: str, target: int = TARGET_PAIRS,
         chunks = [c for c in chunks if c.get("chapter_num") in chapters_filter]
         print(f"[generator] Chapter filter {sorted(chapters_filter, key=str)} → {len(chunks)} chunks")
 
-    print(f"[generator] Backend: {BACKEND}  Machine: {MACHINE_ID}  Seed: {seed}")
+    print(f"[generator] Backend: {BACKEND}  Machine: {MACHINE_ID}  "
+          f"Seed: {seed}  Workers: {workers}")
 
-    # Resume: track done (para_id, question_type) pairs
+    # Resume: load already-completed (source_chunks, question_type) keys
     done_keys: set[str] = set()
     if Path(seeds_path).exists():
         with open(seeds_path, encoding='utf-8') as f:
@@ -467,118 +569,89 @@ def run(enriched_path: str, seeds_path: str, target: int = TARGET_PAIRS,
                     pass
         print(f"[generator] Resuming — {len(done_keys)} pairs already saved")
 
-    tasks    = build_task_list(chunks, target, seed=seed)
-    qa_count = 0
+    # Build 30 % more tasks than target to absorb the ~20 % filter rate.
+    # Any surplus is discarded once target is reached.
+    task_budget = round(target * 1.3)
+    tasks = build_task_list(chunks, task_budget, seed=seed)
+    print(f"[generator] Scheduled {len(tasks)} tasks → target {target} pairs  "
+          f"(+30 % buffer for filter rate)\n")
 
-    print(f"[generator] Scheduled {len(tasks)} tasks → target {target} pairs\n")
+    # Pre-filter tasks already done (resume)
+    pending = []
+    for i, (chunk_a, qt, chunk_b) in enumerate(tasks):
+        pid_a = chunk_a.get("para_id", "")
+        pid_b = chunk_b.get("para_id", "") if chunk_b else ""
+        resume_key = str([pid_a, pid_b] if pid_b else [pid_a]) + qt
+        if resume_key not in done_keys:
+            pending.append((i, len(tasks), chunk_a, qt, chunk_b, resume_key, len(done_keys)))
 
-    ATP_CHAPTERS_TITLES = {
-        1: "IPB Fundamentals", 2: "IPB Support to Planning",
-        3: "Step 1\u2014Define OE", 4: "Step 2\u2014Describe Environmental Effects",
-        5: "Step 3\u2014Evaluate Threat", 6: "Step 4\u2014Determine Threat COAs",
-        7: "Unified Action/Unique Environments", 8: "Multi-Domain Considerations",
-    }
+    skipped = len(tasks) - len(pending)
+    print(f"[generator] {skipped} already done, {len(pending)} pending\n")
 
-    generated = skipped = filtered = 0
+    # ── Write lock + counters (shared across threads) ────────────
+    lock      = threading.Lock()
+    generated = 0   # pairs written this session
+    filtered  = 0   # pairs that failed validation
 
     # MUST use append mode — never "w"
-    with open(seeds_path, 'a', encoding='utf-8') as f:
-        for i, (chunk_a, qt, chunk_b) in enumerate(tasks):
-            pid_a = chunk_a.get("para_id", "")
-            pid_b = chunk_b.get("para_id", "") if chunk_b else ""
-            resume_key = str([pid_a, pid_b] if pid_b else [pid_a]) + qt
-            if resume_key in done_keys:
-                skipped += 1
-                continue
+    with open(seeds_path, 'a', encoding='utf-8') as out_f:
 
-            label = f"[{i+1}/{len(tasks)}] {pid_a} {qt}"
-            print(f"  {label}", end=" ... ", flush=True)
+        def _write_if_needed(result: Optional[tuple]) -> bool:
+            """Write one validated pair. Returns True if written, False if skipped/target hit."""
+            nonlocal generated, filtered
+            if result is None:
+                with lock:
+                    filtered += 1
+                return False
+            resume_key, record, label = result
+            with lock:
+                if generated >= target:
+                    return False   # another thread already hit target
+                record["qa_id"] = f"{MACHINE_ID}-{generated + len(done_keys) + 1:05d}"
+                out_f.write(json.dumps(record) + '\n')
+                out_f.flush()
+                done_keys.add(resume_key)
+                generated += 1
+                print(f"  {label} ... OK  [{generated}/{target}]", flush=True)
+            return True
 
-            ch_a     = chunk_a.get("chapter_num")
-            meta_a   = chunk_a.get("metadata", {})
-            ch_title_a = (
-                chunk_a.get("chapter_title")
-                or ATP_CHAPTERS_TITLES.get(ch_a, f"Chapter {ch_a}")
-            )
+        if workers == 1:
+            # ── Sequential (original behaviour) ───────────────
+            for task_args in pending:
+                if generated >= target:
+                    break
+                _write_if_needed(_process_task(task_args))
+        else:
+            # ── Concurrent ────────────────────────────────────
+            # Submit tasks in streaming batches so we don't queue thousands
+            # of futures when only a fraction are needed.
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures = {}
+                pending_iter = iter(pending)
 
-            if qt == "contrastive" and chunk_b:
-                ch_b       = chunk_b.get("chapter_num")
-                ch_title_b = (
-                    chunk_b.get("chapter_title")
-                    or ATP_CHAPTERS_TITLES.get(ch_b, f"Chapter {ch_b}")
-                )
-                prompt = CONTRASTIVE_TEMPLATE.format(
-                    chapter_num_a  = ch_a,
-                    chapter_title_a= ch_title_a,
-                    para_id_a      = pid_a,
-                    echelon_a      = meta_a.get("echelon", "general"),
-                    text_a         = chunk_a.get("text", "")[:600],
-                    chapter_num_b  = ch_b,
-                    chapter_title_b= ch_title_b,
-                    para_id_b      = pid_b,
-                    echelon_b      = chunk_b.get("metadata", {}).get("echelon", "general"),
-                    text_b         = chunk_b.get("text", "")[:600],
-                    instruction    = TYPE_INSTRUCTIONS[qt],
-                )
-                source_chunks = [pid_a, pid_b]
-            else:
-                prompt = GENERATION_TEMPLATE.format(
-                    chapter_num  = ch_a,
-                    chapter_title= ch_title_a,
-                    para_id      = pid_a,
-                    echelon      = meta_a.get("echelon", "general"),
-                    text         = chunk_a.get("text", "")[:800],
-                    instruction  = TYPE_INSTRUCTIONS[qt],
-                )
-                source_chunks = [pid_a]
+                # Fill initial window
+                for task_args in pending_iter:
+                    if generated >= target:
+                        break
+                    futures[pool.submit(_process_task, task_args)] = True
+                    if len(futures) >= workers * 4:   # keep a small queue
+                        break
 
-            raw  = generate(prompt, GENERATION_SYSTEM, GEN_TEMP)
-            pair = extract_json(raw) if raw else None
+                while futures:
+                    done_future = next(as_completed(futures))
+                    del futures[done_future]
 
-            if pair is None:
-                print("FAILED (no JSON)")
-                filtered += 1
-                continue
+                    _write_if_needed(done_future.result())
 
-            passes, reason = validate_qa(pair, chunk_a, chunk_b)
-            if not passes:
-                print(f"FILTERED ({reason})")
-                filtered += 1
-                continue
-
-            # Machine-prefixed qa_id prevents collisions when merging
-            qa_id = f"{MACHINE_ID}-{generated + len(done_keys) + 1:05d}"
-            seed_record = {
-                "qa_id":         qa_id,
-                "source_chunks": source_chunks,
-                "question_type": qt,
-                "question":      pair["question"].strip(),
-                "thinking_trace":pair.get("thinking_trace", "").strip(),
-                "answer":        pair["answer"].strip(),
-                "metadata": {
-                    "ipb_step":           meta_a.get("ipb_step"),
-                    "content_type":       meta_a.get("content_type", "doctrine"),
-                    "echelon":            meta_a.get("echelon", "general"),
-                    "domain":             meta_a.get("domain", "general"),
-                    "environment":        meta_a.get("environment", "general"),
-                    "difficulty":         pair.get("difficulty", "intermediate"),
-                    "citation_paragraphs":pair.get("citation_paragraphs", source_chunks),
-                },
-            }
-
-            f.write(json.dumps(seed_record) + '\n')
-            f.flush()
-            done_keys.add(resume_key)
-            generated += 1
-            qa_count  += 1
-            print("OK")
-
-            if qa_count >= target:
-                print(f"[generator] Reached target {target} pairs — stopping")
-                break
+                    # Refill the queue if we still need more pairs
+                    if generated < target:
+                        for task_args in pending_iter:
+                            futures[pool.submit(_process_task, task_args)] = True
+                            if len(futures) >= workers * 4:
+                                break
 
     print(f"\n[generator] Done — {generated} saved | "
-          f"{skipped} skipped | {filtered} failed/filtered")
+          f"{skipped} already done | {filtered} failed/filtered")
     print(f"[generator] Seeds → {seeds_path}")
     return generated
 
@@ -609,6 +682,12 @@ if __name__ == "__main__":
                         help="Comma-separated chapter IDs to process on THIS machine. "
                              "Omit to use all chapters (single-machine mode). "
                              "Example: --chapters 7,8  or  --chapters A,B,C  or  --chapters 2,3,D")
+    parser.add_argument("--workers",     type=int, default=1,
+                        help="Number of concurrent generation requests sent to the backend. "
+                             "workers=1 is sequential (default). workers=4 is a good starting "
+                             "point for a single vLLM instance on a DGX Spark — vLLM batches "
+                             "the concurrent requests automatically. Increase until GPU util "
+                             "plateaus (monitor with nvidia-smi dmon or watch nvitop).")
     args = parser.parse_args()
 
     # Apply args to module globals
@@ -624,4 +703,5 @@ if __name__ == "__main__":
             VLLM_URL = args.api_url.rstrip("/")
 
     chapters_filter = parse_chapter_filter(args.chapters)
-    run(args.enriched, args.out, args.target, seed=args.seed, chapters_filter=chapters_filter)
+    run(args.enriched, args.out, args.target, seed=args.seed,
+        chapters_filter=chapters_filter, workers=args.workers)
