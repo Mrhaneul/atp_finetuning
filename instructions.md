@@ -1,20 +1,28 @@
-End-to-End Distributed Generation
-Where things stand
-Stage 1 ✅ chunks.jsonl — 690 chunks
-Stage 2 ✅ enriched.jsonl — 690 chunks enriched
-Stage 3 ⬜ seeds.jsonl — not started, this is what we're doing
-Your machines:
+# End-to-End Distributed Generation
 
-Machine	IP	OS	Role
-You are here	spark-ce3e	100.118.193.70	Linux	Spark 1 → chapters 7, 8
-SSH	spark-87dc	100.76.51.83	Linux	Spark 2 → chapters 5, 6
-SSH	cbu11760	100.119.29.29	macOS	Mac → appendices A, B, C
-git only	csds-pc-1	100.75.150.116	Windows	PC1 → chapters 1, 4
-git only	csds-pc-2	100.113.51.103	Windows	PC2 → chapters 2, 3, D
-Part 1 — Push pipeline to git (do this first, on this Spark)
+## Where things stand
+
+- Stage 1 ✅ chunks.jsonl — 690 chunks
+- Stage 2 ✅ enriched.jsonl — 690 chunks enriched
+- Stage 3 ⬜ seeds.jsonl — not started, this is what we're doing
+
+### Your machines:
+
+| | Machine | IP | OS | Role |
+|---|---|---|---|---|
+| You are here | spark-ce3e | 100.118.193.70 | Linux | Spark 1 → chapters 7, 8 |
+| SSH | spark-87dc | 100.76.51.83 | Linux | Spark 2 → chapters 5, 6 |
+| SSH | cbu11760 | 100.119.29.29 | macOS | Mac → appendices A, B, C |
+| git only | csds-pc-1 | 100.75.150.116 | Windows | PC1 → chapters 1, 4 |
+| git only | csds-pc-2 | 100.113.51.103 | Windows | PC2 → chapters 2, 3, D |
+
+---
+
+## Part 1 — Push pipeline to git (do this first, on this Spark)
+
 Create a private repo on GitHub first, then:
 
-
+```bash
 cd /home/student/caimll_finetuning/atp_pipeline_v2
 
 cat > .gitignore << 'EOF'
@@ -30,13 +38,20 @@ git add generator.py merge_seeds.py requirements.txt .gitignore data/enriched.js
 git commit -m "atp pipeline v2 - distributed generation setup"
 git remote add origin https://github.com/YOUR_ORG/YOUR_REPO.git
 git push -u origin main
-Part 2 — Set up Spark 2 (SSH from this machine)
+```
 
+---
+
+## Part 2 — Set up Spark 2 (SSH from this machine)
+
+```bash
 # Confirm username — if it's not student, adjust
 ssh student@100.76.51.83
+```
+
 Once inside spark-87dc:
 
-
+```bash
 # Install vLLM
 pip install vllm huggingface_hub requests
 
@@ -64,14 +79,21 @@ tmux new-session -d -s gen -x 220 -y 50
 tmux send-keys -t gen "cd ~/atp_pipeline_v2 && python generator.py --backend vllm --api-url http://localhost:8000 --machine-id spark2 --chapters 5,6 --target 1500 --out data/seeds_spark2.jsonl 2>&1 | tee gen.log" Enter
 
 exit
-Part 3 — Set up Mac (SSH from this machine)
+```
 
+---
+
+## Part 3 — Set up Mac (SSH from this machine)
+
+```bash
 ssh YOUR_MAC_USERNAME@100.119.29.29
 # Not sure of the username? Check the Mac login screen or ask whoever uses it
 # On the Mac itself: whoami
+```
+
 Once inside the Mac:
 
-
+```bash
 # Install Ollama if not present
 curl -fsSL https://ollama.com/install.sh | sh
 
@@ -94,12 +116,17 @@ nohup python3 generator.py \
 
 echo "PID: $!"  # save this in case you need to kill it later
 exit
-Part 4 — Set up Windows PCs (someone does this locally on each PC)
+```
+
+---
+
+## Part 4 — Set up Windows PCs (someone does this locally on each PC)
+
 Send these instructions to whoever has access to csds-pc-1 and csds-pc-2.
 
-On csds-pc-1 — open PowerShell:
+**On csds-pc-1 — open PowerShell:**
 
-
+```powershell
 # Install Ollama (skip if already installed)
 winget install Ollama.Ollama
 # Or download from ollama.com if winget isn't available
@@ -121,9 +148,11 @@ python generator.py --machine-id pc1 --chapters 1,4 --target 1000 --out data/see
 git add data/seeds_pc1.jsonl
 git commit -m "pc1 done"
 git push
-On csds-pc-2 — same thing, different chapters:
+```
 
+**On csds-pc-2 — same thing, different chapters:**
 
+```powershell
 winget install Ollama.Ollama
 ollama pull gemma4:31b
 pip install requests
@@ -133,12 +162,17 @@ python generator.py --machine-id pc2 --chapters 2,3,D --target 700 --out data/se
 git add data/seeds_pc2.jsonl
 git commit -m "pc2 done"
 git push
+```
+
 If the PCs have WSL2 installed, the commands are the same but run them inside WSL — better compatibility and no Windows path issues.
 
-Part 5 — Start generation on THIS Spark (spark-ce3e)
+---
+
+## Part 5 — Start generation on THIS Spark (spark-ce3e)
+
 This machine has gemma4:31b already in Ollama but we'll use vLLM for better throughput. Stop Ollama first to free VRAM, then start vLLM.
 
-
+```bash
 cd /home/student/caimll_finetuning/atp_pipeline_v2
 
 # Stop Ollama to free VRAM for vLLM (they'd compete otherwise)
@@ -169,8 +203,13 @@ tmux send-keys -t gen "cd /home/student/caimll_finetuning/atp_pipeline_v2 && pyt
 # Watch it:
 tmux attach -t gen
 # Ctrl-B then D to detach
-Part 6 — Monitor progress (from this Spark anytime)
+```
 
+---
+
+## Part 6 — Monitor progress (from this Spark anytime)
+
+```bash
 # Check this Spark's own output
 wc -l /home/student/caimll_finetuning/atp_pipeline_v2/data/seeds_spark1.jsonl
 
@@ -182,10 +221,15 @@ ssh YOUR_MAC_USERNAME@100.119.29.29 "wc -l ~/atp_pipeline_v2/data/seeds_mac.json
 
 # Check PCs — see what's been pushed to git
 git fetch && git log --oneline -8
-If anything crashes and needs to be restarted, just rerun the exact same python generator.py ... command — it resumes from where it left off automatically.
+```
 
-Part 7 — Collect and merge (once all machines finish)
+If anything crashes and needs to be restarted, just rerun the exact same `python generator.py ...` command — it resumes from where it left off automatically.
 
+---
+
+## Part 7 — Collect and merge (once all machines finish)
+
+```bash
 cd /home/student/caimll_finetuning/atp_pipeline_v2
 
 # Pull PC results from git
@@ -206,15 +250,20 @@ python merge_seeds.py
 
 # Verify
 wc -l data/seeds.jsonl
-You now have data/seeds.jsonl — the input for Stage 4 (formatter + trainer).
+```
 
-Summary of what runs where
+You now have `data/seeds.jsonl` — the input for Stage 4 (formatter + trainer).
 
-spark-ce3e (you)  │  vLLM  │  chapters 7,8   │  target 2000
-spark-87dc        │  vLLM  │  chapters 5,6   │  target 1500
-cbu11760 (Mac)    │  Ollama │  chapters A,B,C │  target  300
-csds-pc-1         │  Ollama │  chapters 1,4   │  target 1000
-csds-pc-2         │  Ollama │  chapters 2,3,D │  target  700
-                  │         │                 │  ─────────────
-                  │         │  TOTAL          │  5500 scheduled
-                  │         │  ~80% pass rate │  ~4,400 final pairs
+---
+
+## Summary of what runs where
+
+| Machine | Backend | Chapters | Target |
+|---|---|---|---|
+| spark-ce3e (you) | vLLM | chapters 7,8 | target 2000 |
+| spark-87dc | vLLM | chapters 5,6 | target 1500 |
+| cbu11760 (Mac) | Ollama | chapters A,B,C | target 300 |
+| csds-pc-1 | Ollama | chapters 1,4 | target 1000 |
+| csds-pc-2 | Ollama | chapters 2,3,D | target 700 |
+| | | TOTAL | 5500 scheduled |
+| | | ~80% pass rate | ~4,400 final pairs |
