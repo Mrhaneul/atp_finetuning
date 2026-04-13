@@ -1,0 +1,28 @@
+# ATP 2-01.3 Pipeline v2 — Python dependencies
+# Install into the caimll_finetuning virtual environment:
+#   source ~/caimll_finetuning/bin/activate
+#   pip install -r requirements.txt
+
+# Core training stack
+unsloth
+trl>=0.8.0
+peft>=0.10.0
+accelerate>=0.27.0
+bitsandbytes>=0.43.0
+transformers>=4.40.0
+datasets>=2.18.0
+torch>=2.2.0
+
+# Ollama client (Stages 2, 3)
+requests>=2.28.0
+
+# Hugging Face Hub (for model resolution in burn_gguf.py)
+huggingface_hub>=0.20.0
+
+# PDF extraction — pdftotext is a system tool, not a Python package
+# Install via OS:
+#   Ubuntu/Debian: sudo apt install poppler-utils
+#   (pdftotext is part of poppler-utils)
+
+# Optional: monitoring / reporting
+tqdm>=4.65.0

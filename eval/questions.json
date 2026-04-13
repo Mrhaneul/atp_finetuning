@@ -1,0 +1,170 @@
+[
+  {
+    "id": "F-01",
+    "type": "factual",
+    "question": "What is Intelligence Preparation of the Battlefield (IPB) and what are its four steps as defined in ATP 2-01.3?",
+    "keywords": ["define", "describe", "evaluate", "determine", "operational environment", "threat", "course of action"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "F-02",
+    "type": "factual",
+    "question": "How does ATP 2-01.3 define the operational environment, and what eight operational variables does it use to describe it?",
+    "keywords": ["operational environment", "political", "military", "economic", "social", "infrastructure", "information", "physical environment", "time"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "F-03",
+    "type": "factual",
+    "question": "What are the primary intelligence products produced during Step 2 of IPB (Describe Environmental Effects on Operations) according to ATP 2-01.3?",
+    "keywords": ["modified combined obstacle overlay", "weather effects matrix", "terrain", "trafficability", "observation", "fields of fire", "avenues of approach"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "F-04",
+    "type": "factual",
+    "question": "What is a threat course of action (COA) and what criteria must it meet to be considered valid according to ATP 2-01.3?",
+    "keywords": ["feasible", "acceptable", "suitable", "distinguishable", "complete", "threat model", "situation template"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "F-05",
+    "type": "factual",
+    "question": "What is the threat model in ATP 2-01.3, what does it contain, and when is it produced during the IPB process?",
+    "keywords": ["threat model", "doctrine", "tactics", "techniques", "procedures", "capabilities", "vulnerabilities", "Step 3", "evaluate"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "P-01",
+    "type": "procedural",
+    "question": "How does IPB support the military decision-making process (MDMP) at each phase, and what specific products does the intelligence officer provide at each step?",
+    "keywords": ["MDMP", "mission analysis", "course of action", "intelligence estimate", "PIR", "wargame", "collection plan"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "P-02",
+    "type": "procedural",
+    "question": "Describe the step-by-step process for conducting Step 3 of IPB (Evaluate the Threat) as prescribed in ATP 2-01.3.",
+    "keywords": ["threat model", "high-value target", "capabilities", "limitations", "doctrinal template", "activity", "pattern of life"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "P-03",
+    "type": "procedural",
+    "question": "What is the process for developing a modified combined obstacle overlay (MCOO) during Step 2 of IPB, and what terrain factors must it address?",
+    "keywords": ["MCOO", "trafficability", "observation", "fields of fire", "cover", "concealment", "obstacles", "avenues of approach", "key terrain"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "C-01",
+    "type": "comparative",
+    "question": "How does IPB conducted during competition differ from IPB conducted during armed conflict or large-scale combat operations, according to ATP 2-01.3?",
+    "keywords": ["competition", "armed conflict", "large-scale combat", "threat", "collection", "indicators", "degraded", "priority"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "C-02",
+    "type": "comparative",
+    "question": "What is the difference between the operational environment and the operational area as defined in ATP 2-01.3, and how does this distinction affect IPB?",
+    "keywords": ["operational environment", "operational area", "conditions", "circumstances", "threat", "terrain", "breadth", "depth"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "E-01",
+    "type": "echelon_specific",
+    "question": "What are the specific IPB responsibilities of the Brigade Combat Team (BCT) S-2, and how do they differ from those at higher echelons?",
+    "keywords": ["BCT", "S-2", "brigade", "IPB", "collection", "PIR", "targeting", "MCOO", "threat"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "E-02",
+    "type": "echelon_specific",
+    "question": "How does Division G-2 IPB support differ from BCT S-2 IPB support in terms of scope, products, and focus areas per ATP 2-01.3?",
+    "keywords": ["division", "brigade", "G-2", "S-2", "operational", "tactical", "depth", "synchronization", "echelon"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "E-03",
+    "type": "echelon_specific",
+    "question": "What unique IPB considerations and responsibilities apply at the Corps level, and how does Corps intelligence support differ from Division-level support?",
+    "keywords": ["corps", "division", "theater", "operational", "long-range", "deep operations", "intelligence brigade", "collection"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "AR-01",
+    "type": "applied_reasoning",
+    "question": "A BCT S-2 is preparing IPB for a large-scale combat operation against a peer threat with degraded communications. Based on ATP 2-01.3, how should the S-2 prioritize IPB efforts and what products are most critical?",
+    "keywords": ["priority", "degraded", "peer", "large-scale", "threat model", "MCOO", "PIR", "collection", "liaison"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "AR-02",
+    "type": "applied_reasoning",
+    "question": "An intelligence officer is conducting IPB for operations in a dense urban environment. What specific environmental considerations and IPB modifications does ATP 2-01.3 prescribe for urban operations?",
+    "keywords": ["urban", "terrain", "civilian", "population", "underground", "vertical", "observation", "avenues of approach", "key terrain"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "PG-01",
+    "type": "product_generation",
+    "question": "What is an event template, what information does it contain, and how is it developed from the threat model during Step 4 of IPB per ATP 2-01.3?",
+    "keywords": ["event template", "named area of interest", "NAI", "indicators", "threat COA", "timeline", "decision point"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "PG-02",
+    "type": "product_generation",
+    "question": "What should a weather effects matrix contain, what data sources are used to create it, and at what point in the IPB process is it produced according to ATP 2-01.3?",
+    "keywords": ["weather", "effects matrix", "visibility", "precipitation", "temperature", "Step 2", "environmental effects", "trafficability"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "CS-01",
+    "type": "cross_step",
+    "question": "How do the outputs of Step 1 of IPB (Define the Operational Environment) directly feed into and enable Step 3 (Evaluate the Threat) according to ATP 2-01.3?",
+    "keywords": ["define", "evaluate", "operational environment", "threat", "area of interest", "information requirements", "conditions"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "CS-02",
+    "type": "cross_step",
+    "question": "Explain how the threat evaluation products developed in Step 3 of IPB inform and enable Step 4 (Determine Threat COAs) per ATP 2-01.3.",
+    "keywords": ["threat model", "doctrinal template", "situation template", "course of action", "most likely", "most dangerous", "capabilities"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "MD-01",
+    "type": "multi_domain",
+    "question": "How does ATP 2-01.3 address multi-domain threats in IPB, and what additional considerations must the intelligence officer incorporate when threats operate across land, air, cyber, space, and maritime domains?",
+    "keywords": ["multi-domain", "cyber", "space", "electronic warfare", "threat", "domain", "convergence", "IPB"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "MD-02",
+    "type": "multi_domain",
+    "question": "What specific IPB considerations are unique to the space and cyber domains as described in ATP 2-01.3, and how do these differ from traditional terrain analysis?",
+    "keywords": ["cyber", "space", "network", "satellite", "electromagnetic", "domain", "threat", "vulnerability", "non-physical"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "CT-01",
+    "type": "contrastive",
+    "question": "How does the BCT S-2's approach to IPB differ from the Division G-2's approach in terms of time horizon, product focus, and collection priorities as described in ATP 2-01.3?",
+    "keywords": ["BCT", "division", "S-2", "G-2", "tactical", "operational", "collection", "depth", "products", "time"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "CT-02",
+    "type": "contrastive",
+    "question": "Contrast the threat evaluation requirements for conventional peer/near-peer threats versus unconventional or hybrid threats in ATP 2-01.3's IPB framework.",
+    "keywords": ["conventional", "unconventional", "hybrid", "peer", "threat model", "irregular", "capabilities", "doctrinal template", "pattern"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "CT-03",
+    "type": "contrastive",
+    "question": "According to ATP 2-01.3, how does IPB support during competition differ from IPB support during crisis, specifically in terms of intelligence priorities, collection focus, and key products produced?",
+    "keywords": ["competition", "crisis", "indicators", "warning", "collection", "priority", "threat", "escalation", "products"],
+    "difficulty": "advanced"
+  }
+]
