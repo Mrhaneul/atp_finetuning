@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh repo:*)",
+      "Bash(gh api:*)",
+      "Bash(git push:*)",
+      "Bash(python -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\); print\\(d['qa_id']\\)\")",
+      "Bash(python3 -c ':*)",
+      "Bash(python -c ':*)"
+    ]
+  }
+}
