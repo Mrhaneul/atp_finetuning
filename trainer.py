@@ -207,7 +207,7 @@ def train(args) -> None:
             load_best_model_at_end      = False,
             seed                        = RANDOM_SEED,
             report_to                   = "none",
-            packing                     = False,
+            packing                     = True,
             dataset_num_proc            = 2,
         ),
     )

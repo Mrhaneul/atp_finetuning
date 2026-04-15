@@ -81,6 +81,7 @@ OLLAMA_URL     = "http://localhost:11434/api/generate"
 # vLLM config (OpenAI-compatible endpoint)
 VLLM_MODEL     = "google/gemma-4-31b-it"
 VLLM_URL       = "http://localhost:8000"
+VLLM_MAX_TOKENS = 1024
 
 # Active backend: "ollama" or "vllm"
 BACKEND        = "ollama"
@@ -168,20 +169,50 @@ def generate_vllm(prompt: str, system: str = "", temperature: float = GEN_TEMP) 
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
+    payload = {
+        "model":       VLLM_MODEL,
+        "messages":    messages,
+        "max_tokens":  VLLM_MAX_TOKENS,
+        "temperature": temperature,
+        "top_p":       0.95,
+    }
     try:
         response = requests.post(
             f"{VLLM_URL}/v1/chat/completions",
-            json={
-                "model":       VLLM_MODEL,
-                "messages":    messages,
-                "max_tokens":  4096,
-                "temperature": temperature,
-                "top_p":       0.95,
-            },
+            json=payload,
             timeout=300,
         )
-        result = response.json()
-        return coerce_str(result["choices"][0]["message"]["content"])
+        try:
+            result = response.json()
+        except Exception:
+            body = response.text.strip().replace("\n", " ")
+            print(
+                f"  [generator] vLLM non-JSON response "
+                f"(HTTP {response.status_code}, prompt_chars={len(prompt)}, "
+                f"max_tokens={VLLM_MAX_TOKENS}): {body[:800]}"
+            )
+            return ""
+        if response.status_code != 200:
+            print(
+                f"  [generator] vLLM HTTP {response.status_code} "
+                f"(prompt_chars={len(prompt)}, max_tokens={VLLM_MAX_TOKENS}): {result}"
+            )
+            return ""
+        choices = result.get("choices") if isinstance(result, dict) else None
+        if not isinstance(choices, list) or not choices:
+            print(
+                f"  [generator] vLLM unexpected response "
+                f"(prompt_chars={len(prompt)}, max_tokens={VLLM_MAX_TOKENS}): {result}"
+            )
+            return ""
+        message = choices[0].get("message", {})
+        if not isinstance(message, dict) or "content" not in message:
+            print(
+                f"  [generator] vLLM malformed choice "
+                f"(prompt_chars={len(prompt)}, max_tokens={VLLM_MAX_TOKENS}): {choices[0]}"
+            )
+            return ""
+        return coerce_str(message["content"])
     except Exception as e:
         print(f"  [generator] vLLM error: {e}")
         return ""
@@ -666,6 +697,9 @@ if __name__ == "__main__":
                         help="Ollama model name (ignored when --backend vllm)")
     parser.add_argument("--vllm-model",  default=VLLM_MODEL,
                         help="HuggingFace model name for vLLM server")
+    parser.add_argument("--max-tokens",  type=int, default=VLLM_MAX_TOKENS,
+                        help="Maximum completion tokens requested from vLLM per call "
+                             f"(default: {VLLM_MAX_TOKENS})")
     parser.add_argument("--target",      type=int, default=TARGET_PAIRS,
                         help="Target number of QA pairs (default: 5000)")
     parser.add_argument("--backend",     default="ollama", choices=["ollama", "vllm"],
@@ -693,6 +727,7 @@ if __name__ == "__main__":
     # Apply args to module globals
     OLLAMA_MODEL = args.model
     VLLM_MODEL   = args.vllm_model
+    VLLM_MAX_TOKENS = args.max_tokens
     BACKEND      = args.backend
     MACHINE_ID   = args.machine_id
 

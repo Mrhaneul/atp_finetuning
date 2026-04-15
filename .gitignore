@@ -2,4 +2,11 @@ __pycache__/
 *.pyc
 *.pdf
 pipeline_run.log
+gen_spark*.log
 data/chunks.jsonl
+data/enriched.jsonl
+data/seeds.jsonl
+outputs/
+burns/
+unsloth_compiled_cache/
+.codex
