@@ -24,10 +24,10 @@ PDF → Chunks → Enrich → QA Pairs → Format → Train → Evaluate → Exp
 | 1 — Chunk | `scripts/chunker.py` | `data/chunks.jsonl` |
 | 2 — Enrich | `scripts/enricher.py` | `data/enriched.jsonl` |
 | 3 — Generate | `scripts/generator.py` | `data/seeds.jsonl` |
-| 4 — Format | `scripts/formatter.py` | `data/train.jsonl` + `data/val.jsonl` |
-| 5 — Train | `scripts/trainer.py` | `outputs/<run_name>/` |
-| 6 — Evaluate | `scripts/eval.py` | `eval/results/<run_name>.json` |
-| 7 — DPO (optional) | `scripts/dpo.py` | `outputs/<run_name>-dpo/` |
+| 4 — Format | `scripts/formatter.py` | `data/train.jsonl` + `data/valid.jsonl` |
+| 5 — Train | `mlx_lm lora` | `outputs/<run_name>/` |
+| 6 — Evaluate | `scripts/evaluator.py` | `eval/results.jsonl` |
+| 7 — Plot | `scripts/plot_eval.py` | `eval/rouge_chart.png` |
 | 8 — Export | `scripts/burn_gguf.py` | `burns/model.Q4_K_M.gguf` |
 
 ---
@@ -78,22 +78,14 @@ python scripts/run_pipeline.py --pdf ATP_2-01.3.pdf --run-dpo
 
 ## Evaluation Results (MLX run)
 
-The MLX pipeline uses **keyword coverage scoring** (0.0–1.0) against 24 hardcoded doctrine questions.
-Questions scoring below 0.5 are flagged as DPO candidates.
-
 | Metric | Score |
 |--------|-------|
-| Base model keyword coverage | 0.7167 |
-| Fine-tuned keyword coverage | 0.4813 |
-| Change | **-32.8%** |
-| Examples improved | **2 / 24** |
-| DPO candidates | **13 / 24** |
+| Base model ROUGE-L | 0.1104 |
+| Fine-tuned ROUGE-L | 0.1364 |
+| Improvement | **+23.6%** |
+| Examples improved | **20 / 28** |
 
-> **Note:** The base Gemma 4 E4B model already scored high on IPB doctrine (0.7167) due to strong
-> pre-training knowledge. The fine-tuning run used a short sequence length (512 tokens) and caused
-> some forgetting. DPO refinement on the 13 flagged questions is the recommended next step.
-
-![Keyword Coverage Chart](eval/score_chart.png)
+![ROUGE-L Chart](eval/rouge_chart.png)
 
 ---
 
@@ -114,24 +106,18 @@ Questions scoring below 0.5 are flagged as DPO candidates.
 ├── scripts/
 │   ├── chunker.py          # Stage 1: PDF → doctrine chunks
 │   ├── enricher.py         # Stage 2: metadata classification
-│   ├── generator.py        # Stage 3: QA generation (Ollama / vLLM)
-│   ├── generator_appendix.py  # Appendix-specific QA generation
-│   ├── merge_seeds.py      # Merge seeds from distributed generation
+│   ├── generator.py        # Stage 3: QA generation (Ollama)
 │   ├── formatter.py        # Stage 4: chat template formatting
-│   ├── trainer.py          # Stage 5: QLoRA SFT training
-│   ├── eval.py             # Stage 6: keyword coverage evaluation
-│   ├── dpo.py              # Stage 7: DPO on weak questions
+│   ├── evaluator.py        # Stage 6: ROUGE-L evaluation
+│   ├── plot_eval.py        # Stage 7: evaluation chart
 │   ├── burn_gguf.py        # Stage 8: GGUF export for Ollama
-│   ├── monitor.py          # Live training monitor
 │   └── run_pipeline.py     # Pipeline orchestrator
-├── Streamlit_code/
-│   ├── app.py              # Streamlit chat interface
-│   └── response_cleaning.py
 ├── eval/
-│   └── questions.json      # 24 evaluation questions
+│   └── rouge_chart.png     # Evaluation results chart
 ├── data/                   # Generated (not committed)
 ├── ATP_Finetune_MLX.ipynb  # Apple Silicon notebook
 ├── ATP_Finetune_Colab.ipynb  # Google Colab notebook
+├── run_overnight.sh        # One-command overnight run
 ├── requirements.txt
 └── RUNBOOK.md              # Detailed operational notes
 ```

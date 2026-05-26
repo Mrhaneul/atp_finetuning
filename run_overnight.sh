@@ -67,19 +67,19 @@ echo "    Stop Ollama before this step to free unified memory."
 echo "    Stopping Ollama..." | tee -a "$LOG"
 ollama stop 2>/dev/null || true
 
-$PYTHON -m mlx_lm.lora \
+$PYTHON -m mlx_lm lora \
     --model        mlx-community/gemma-4-E4B-it-4bit \
     --train \
     --data         data \
     --iters        1500 \
     --batch-size   4 \
-    --lora-layers  8 \
+    --num-layers   8 \
     --learning-rate 5e-6 \
     --adapter-path "$ADAPTER" \
     --steps-per-eval 100 \
     --save-every   300 \
     2>&1 | tee -a "$LOG"
-[ ${PIPESTATUS[0]} -eq 0 ] || fail "mlx_lm.lora training"
+[ ${PIPESTATUS[0]} -eq 0 ] || fail "mlx_lm lora training"
 
 # ── Stage 6: Evaluate (ROUGE-L) ───────────────────────────────
 echo "" | tee -a "$LOG"
