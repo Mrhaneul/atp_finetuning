@@ -76,17 +76,24 @@ python scripts/run_pipeline.py --pdf ATP_2-01.3.pdf --run-dpo
 
 ---
 
-## Evaluation Metrics
+## Evaluation Results (MLX run)
 
 The MLX pipeline uses **keyword coverage scoring** (0.0–1.0) against 24 hardcoded doctrine questions.
 Questions scoring below 0.5 are flagged as DPO candidates.
 
 | Metric | Score |
 |--------|-------|
-| Base model avg score | TBD |
-| Fine-tuned avg score | TBD |
-| Improvement | TBD |
-| DPO candidates | TBD |
+| Base model keyword coverage | 0.7167 |
+| Fine-tuned keyword coverage | 0.4813 |
+| Change | **-32.8%** |
+| Examples improved | **2 / 24** |
+| DPO candidates | **13 / 24** |
+
+> **Note:** The base Gemma 4 E4B model already scored high on IPB doctrine (0.7167) due to strong
+> pre-training knowledge. The fine-tuning run used a short sequence length (512 tokens) and caused
+> some forgetting. DPO refinement on the 13 flagged questions is the recommended next step.
+
+![Keyword Coverage Chart](eval/score_chart.png)
 
 ---
 
