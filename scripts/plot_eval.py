@@ -22,14 +22,15 @@ VALID_PATH   = 'data/valid.jsonl'
 RESULTS_PATH = 'eval/results.jsonl'
 
 TYPE_LABELS = {
-    'factual':                 'Factual',
-    'procedural':              'Procedural',
-    'conceptual':              'Conceptual',
-    'scenario':                'Scenario',
-    'application':             'Application',
-    'comparative':             'Comparative',
-    'definition':              'Definition',
-    'relationship':            'Relationship',
+    'factual':            'Factual',
+    'procedural':         'Procedural',
+    'comparative':        'Comparative',
+    'echelon_specific':   'Echelon-Specific',
+    'applied_reasoning':  'Applied Reasoning',
+    'product_generation': 'Product Generation',
+    'cross_step':         'Cross-Step',
+    'multi_domain':       'Multi-Domain',
+    'contrastive':        'Contrastive',
 }
 
 TYPE_ORDER = list(TYPE_LABELS.keys())
