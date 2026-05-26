@@ -34,7 +34,7 @@ MAX_NEW_TOKENS   = 512
 EVAL_TEMPERATURE = 0.1    # deterministic evaluation
 DPO_THRESHOLD    = 0.5    # questions below this score go to DPO
 
-QUESTIONS_FILE   = Path(__file__).parent / "eval" / "questions.json"
+QUESTIONS_FILE   = Path(__file__).parent.parent / "eval" / "questions.json"
 
 # System prompt for eval inference
 EVAL_SYSTEM = (

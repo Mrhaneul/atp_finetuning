@@ -45,6 +45,8 @@ import time
 from pathlib import Path
 from datetime import datetime
 
+SCRIPTS_DIR = Path(__file__).parent
+
 # ── Stage ordering ────────────────────────────────────────────
 
 STAGES = ["chunk", "enrich", "generate", "train", "eval", "dpo"]
@@ -186,7 +188,7 @@ def main():
     # ── Stage 1: Chunk ────────────────────────────────────────
     if should_run("chunk", args, stage_order):
         run_cmd([
-            py, "chunker.py",
+            py, str(SCRIPTS_DIR / "chunker.py"),
             "--pdf", args.pdf,
             "--out", str(chunks_path),
         ], "chunk")
@@ -194,7 +196,7 @@ def main():
     # ── Stage 2: Enrich ───────────────────────────────────────
     if should_run("enrich", args, stage_order):
         run_cmd([
-            py, "enricher.py",
+            py, str(SCRIPTS_DIR / "enricher.py"),
             "--chunks", str(chunks_path),
             "--out",    str(enriched_path),
         ], "enrich")
@@ -202,7 +204,7 @@ def main():
     # ── Stage 3: Generate ─────────────────────────────────────
     if should_run("generate", args, stage_order):
         run_cmd([
-            py, "generator.py",
+            py, str(SCRIPTS_DIR / "generator.py"),
             "--enriched", str(enriched_path),
             "--out",      str(seeds_path),
             "--model",    args.model,
@@ -215,7 +217,7 @@ def main():
 
         # 4a: Format seeds → train/val splits
         run_cmd([
-            py, "formatter.py",
+            py, str(SCRIPTS_DIR / "formatter.py"),
             "--seeds", str(seeds_path),
             "--train", str(train_path),
             "--val",   str(val_path),
@@ -223,7 +225,7 @@ def main():
 
         # 4b: QLoRA SFT
         run_cmd([
-            py, "trainer.py",
+            py, str(SCRIPTS_DIR / "trainer.py"),
             "--train",     str(train_path),
             "--val",       str(val_path),
             "--out",       str(adapter_path),
@@ -241,7 +243,7 @@ def main():
     # ── Stage 5: Eval ─────────────────────────────────────────
     if should_run("eval", args, stage_order):
         eval_cmd = [
-            py, "eval.py",
+            py, str(SCRIPTS_DIR / "eval.py"),
             "--adapter",   eval_adapter,
             "--questions", "eval/questions.json",
             "--out",       str(eval_out),
@@ -256,7 +258,7 @@ def main():
             print(f"[pipeline] DPO requires eval results at {eval_out} — run eval first.")
         else:
             run_cmd([
-                py, "dpo.py",
+                py, str(SCRIPTS_DIR / "dpo.py"),
                 "--sft",       eval_adapter,
                 "--eval",      str(eval_out),
                 "--seeds",     str(seeds_path),

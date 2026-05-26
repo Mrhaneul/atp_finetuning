@@ -1,12 +1,59 @@
-__pycache__/
-*.pyc
+# ── Model weights & large binaries ────────────────────────────
+outputs/
+burns/
+fused_model/
+*.safetensors
+*.gguf
+*.bin
+*.pt
+*.pth
+unsloth_compiled_cache/
+
+# ── Source PDF (copyright) ─────────────────────────────────────
 *.pdf
-pipeline_run.log
-gen_spark*.log
+
+# ── Generated data (reproducible from pipeline) ───────────────
 data/chunks.jsonl
 data/enriched.jsonl
 data/seeds.jsonl
-outputs/
-burns/
-unsloth_compiled_cache/
+data/seeds_*.jsonl
+data/train.jsonl
+data/val.jsonl
+eval/results/
+
+# ── Keep eval questions ────────────────────────────────────────
+!eval/questions.json
+
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Environments ──────────────────────────────────────────────
+.env
+.venv
+venv/
+env/
+
+# ── Logs ──────────────────────────────────────────────────────
+pipeline_run.log
+gen_spark*.log
+gen_mac.log
+*.log
+
+# ── Jupyter ───────────────────────────────────────────────────
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# ── macOS ─────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+
+# ── Internal ──────────────────────────────────────────────────
 .codex
