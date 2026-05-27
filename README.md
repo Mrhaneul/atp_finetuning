@@ -1,78 +1,121 @@
-# ATP 2-01.3 — Fine-Tuned LLM Doctrine Assistant
+# Fine-tuning Gemma on ATP 2-01.3
+### A Step-by-Step Tutorial Using MLX + LoRA and Unsloth + QLoRA
 
-Fine-tune a language model on ATP 2-01.3 (Intelligence Preparation of the Battlefield, March 2019)
-to serve as an on-device doctrine assistant for military intelligence questions.
+---
 
-Two notebooks are provided — pick the one that matches your hardware:
+## Overview
+
+This project fine-tunes Gemma-family language models on **ATP 2-01.3, Intelligence Preparation of the Battlefield, March 2019** to create an on-device military doctrine assistant for IPB questions, doctrine-grounded answers, and citation-style responses.
+
+Two parallel pipelines are included:
 
 | Notebook | Hardware | Model | Framework | Launch |
 |----------|----------|-------|-----------|--------|
-| `ATP_Finetune_MLX.ipynb` | Mac Apple Silicon (M1–M4) | Gemma 4 E4B | MLX + LoRA | |
-| `ATP_Finetune_Colab.ipynb` | Google Colab (free T4 GPU) | Gemma 2-2B | Unsloth + QLoRA | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Mrhaneul/atp_finetuning/blob/main/ATP_Finetune_Colab.ipynb) |
+| `ATP_Finetune_MLX.ipynb` | Mac Apple Silicon | Gemma 4 E4B, 4-bit | MLX + LoRA | Local notebook |
+| `ATP_Finetune_Colab.ipynb` | Google Colab T4 | Gemma 2-2B, 4-bit | Unsloth + QLoRA | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Mrhaneul/atp_finetuning/blob/prod/ATP_Finetune_Colab.ipynb) |
+
+### What You'll Build
+
+```text
+ATP PDF -> Text Chunks -> QA Seeds -> Gemma Chat Format -> LoRA Training -> ROUGE-L Evaluation -> Optional GGUF Export
+```
+
+### Why This Approach?
+
+- **Doctrine-specific behavior** teaches the model IPB terminology, response structure, and ATP citation style.
+- **LoRA and QLoRA** keep training small enough for local Apple Silicon or a free Colab T4 GPU.
+- **Two hardware paths** let the same doctrine-assistant workflow run locally with MLX or in Colab with Unsloth.
+- **ROUGE-L evaluation** compares base-model answers against fine-tuned answers on held-out doctrine questions.
 
 ---
 
-## Pipeline
+## Prerequisites
 
-```
-PDF → Chunks → Enrich → QA Pairs → Format → Train → Evaluate → Export GGUF
-  1       2        3         4         5        6         7           8
-```
+| Requirement | MLX Pipeline | Colab Pipeline |
+|-------------|--------------|----------------|
+| Hardware | Apple Silicon Mac | Google Colab T4 GPU |
+| Python | 3.11 recommended | Colab runtime |
+| Model access | `mlx-community/gemma-4-E4B-it-4bit` | HuggingFace Gemma 2 license accepted |
+| Storage | Local project folder | Google Drive folder: `MyDrive/atp-finetuning` |
+| Source PDF | `ATP_2-01.3.pdf` | Upload when prompted in Step 2 |
 
-| Stage | Script | Output |
-|-------|--------|--------|
-| 1 — Chunk | `scripts/chunker.py` | `data/chunks.jsonl` |
-| 2 — Enrich | `scripts/enricher.py` | `data/enriched.jsonl` |
-| 3 — Generate | `scripts/generator.py` | `data/seeds.jsonl` |
-| 4 — Format | `scripts/formatter.py` | `data/train.jsonl` + `data/valid.jsonl` |
-| 5 — Train | `mlx_lm lora` | `outputs/<run_name>/` |
-| 6 — Evaluate | `scripts/evaluator.py` | `eval/results.jsonl` |
-| 7 — Plot | `scripts/plot_eval.py` | `eval/rouge_chart.png` |
-| 8 — Export | `scripts/burn_gguf.py` | `burns/model.Q4_K_M.gguf` |
+### Before You Start
+
+1. For Colab, enable GPU: Runtime -> Change runtime type -> T4 GPU.
+2. Accept the Gemma 2 license at [huggingface.co/google/gemma-2-2b-it](https://huggingface.co/google/gemma-2-2b-it).
+3. Have a HuggingFace read token ready for the Colab login cell.
+4. Use the `prod` branch when opening the Colab notebook.
 
 ---
 
-## Quick Start (MLX — Apple Silicon)
-
-**Prerequisites:** Mac with M-series chip, [Ollama](https://ollama.com) running with `gemma4:latest` pulled.
+## Step 0: Clone the Repository
 
 ```bash
-# 1. Create conda environment
+git clone https://github.com/Mrhaneul/atp_finetuning.git
+cd atp_finetuning
+git checkout prod
+```
+
+---
+
+## Step 1: Run the MLX Pipeline
+
+Use this path on an Apple Silicon Mac.
+
+```bash
 conda create -n caimll_finetuning python=3.11 -y
 conda activate caimll_finetuning
 
-# 2. Install dependencies
 pip install -r requirements.txt
 pip install mlx-lm
 
-# 3. Place your PDF in the project root
-cp /path/to/ATP_2-01.3.pdf .
-
-# 4. Run the full pipeline
 python scripts/run_pipeline.py --pdf ATP_2-01.3.pdf
-
-# 5. Deploy with Ollama
-cd burns/atp-gemma4-e4b-mlx-v1
-ollama create atp-doctrine -f Modelfile
-ollama run atp-doctrine
 ```
 
-**Run individual stages:**
+To resume from a specific stage:
+
 ```bash
 python scripts/run_pipeline.py --pdf ATP_2-01.3.pdf --start-from generate
 python scripts/run_pipeline.py --start-from train --run-name atp-gemma4-v1
 python scripts/run_pipeline.py --start-from eval --adapter outputs/atp-gemma4-v1
-python scripts/run_pipeline.py --pdf ATP_2-01.3.pdf --run-dpo
 ```
 
 ---
 
-## Quick Start (Colab — T4 GPU)
+## Step 2: Run the Colab Pipeline
 
-1. Open `ATP_Finetune_Colab.ipynb` in Google Colab
-2. Enable GPU: Runtime → Change runtime type → T4 GPU
-3. Accept the [Gemma 2 license](https://huggingface.co/google/gemma-2-2b-it) on HuggingFace
-4. Run cells top to bottom — upload `ATP_2-01.3.pdf` when prompted in Step 2
+Use this path on Google Colab with a T4 GPU.
+
+1. Open `ATP_Finetune_Colab.ipynb` from the `prod` branch.
+2. Run Step 0 to confirm the GPU.
+3. Run Step 1 to install Unsloth, training, PDF, and evaluation dependencies.
+4. Run Step 2 to mount Google Drive and upload `ATP_2-01.3.pdf`.
+5. Run Step 3 to log in to HuggingFace.
+6. Run Steps 4-9 to chunk, generate QA seeds, format data, train, evaluate, and plot.
+
+If Step 5 has an old empty or failed seed file, clear it before rerunning:
+
+```python
+import os
+if os.path.exists(SEEDS_PATH):
+    os.remove(SEEDS_PATH)
+    print("Cleared")
+```
+
+---
+
+## Step 3: Pipeline Outputs
+
+| Stage | Script or Notebook Step | Output |
+|-------|--------------------------|--------|
+| Chunk PDF | `scripts/chunker.py` or Colab Step 4 | `data/chunks.jsonl` |
+| Enrich metadata | `scripts/enricher.py` | `data/enriched.jsonl` |
+| Generate QA seeds | `scripts/generator.py` or Colab Step 5 | `data/seeds.jsonl` |
+| Format chat data | `scripts/formatter.py` or Colab Step 6 | `data/train.jsonl`, `data/val.jsonl` |
+| Train adapter | `mlx_lm lora` or Colab Step 7 | `outputs/<adapter_name>/` |
+| Evaluate | `scripts/evaluator.py` or Colab Step 8 | `eval/results.jsonl` |
+| Plot | `scripts/plot_eval.py` or Colab Step 9 | `eval/rouge_chart.png` |
+| Export | `scripts/burn_gguf.py` or Colab Step 10 | `burns/<model>.gguf` |
 
 ---
 
@@ -87,59 +130,84 @@ python scripts/run_pipeline.py --pdf ATP_2-01.3.pdf --run-dpo
 
 ![ROUGE-L Chart](eval/rouge_chart.png)
 
+### MLX Results by Question Type
+
+| Question Type | n | Base | Fine-tuned | Delta |
+|---------------|---|------|------------|-------|
+| Procedural | 3 | 0.0859 | 0.1165 | +0.0306 |
+| Comparative | 2 | 0.0977 | 0.0994 | +0.0017 |
+| Echelon-Specific | 4 | 0.1122 | 0.1463 | +0.0341 |
+| Applied Reasoning | 4 | 0.1031 | 0.1100 | +0.0069 |
+| Product Generation | 3 | 0.1131 | 0.1613 | +0.0482 |
+| Cross-Step | 4 | 0.1157 | 0.1465 | +0.0308 |
+| Multi-Domain | 3 | 0.1112 | 0.1492 | +0.0380 |
+| Contrastive | 5 | 0.1284 | 0.1460 | +0.0176 |
+
 ---
 
-## Key Design Choices
+## Evaluation Results (Colab run)
 
-- **LLM-generated QA pairs** — Ollama (Gemma 4 31B) generates questions with reasoning traces, not rule-based keyword matching
-- **Reasoning traces** — Every MLX training example includes a `<|channel>thought` trace showing how to derive the answer from doctrine
-- **Citation enforcement** — All answers end with `[Reference: ATP 2-01.3, para X-Y]`
-- **DPO refinement** — Questions scoring below 0.5 automatically feed into a Direct Preference Optimization pass
-- **Distributed generation** — `generator.py` supports chapter-based sharding across multiple machines (DGX Spark, 4090 PCs, Mac Studio)
-- **No cloud required** — MLX pipeline runs entirely on-device on Apple Silicon
+Colab evaluation is produced by Steps 8-9 after the T4 training run completes.
+
+| Metric | Score |
+|--------|-------|
+| Base model ROUGE-L | Pending |
+| Fine-tuned ROUGE-L | Pending |
+| Improvement | Pending |
+| Examples improved | Pending |
+
+---
+
+## Troubleshooting
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Step 5 saves 0 QA pairs | Old failed `seeds.jsonl`, noisy PDF chunks, or format drift in generation | Delete `SEEDS_PATH` and rerun Step 5 on the latest `prod` notebook |
+| Step 5 prints many parse failures | Model output did not follow `QUESTION:` / `ANSWER:` format | The notebook now uses deterministic decoding and falls back to extractive QA when parsing fails |
+| Colab opens an older notebook | Colab badge or URL points at `main` | Open the notebook from the `prod` branch |
+| `GatedRepoError` | Gemma license not accepted | Accept the Gemma 2 license on HuggingFace and rerun login |
+| CUDA out of memory | Previous model still in GPU memory | Runtime -> Restart runtime, then resume from the saved Drive step |
+| Evaluation file not found | Step 8 has not completed | Run Step 8 before Step 9 |
+
+---
+
+## Performance Notes
+
+| Pipeline | Dataset | Hardware | Expected Time |
+|----------|---------|----------|---------------|
+| MLX | 255 train / 28 val | Apple Silicon | Completed |
+| Colab demo | 50 QA seed target | T4 GPU | Approximately 35-60 minutes |
+
+For higher-quality final results, increase the Colab QA target after the demo run and rerun Steps 5-9.
 
 ---
 
 ## Project Structure
 
-```
-├── scripts/
-│   ├── chunker.py          # Stage 1: PDF → doctrine chunks
-│   ├── enricher.py         # Stage 2: metadata classification
-│   ├── generator.py        # Stage 3: QA generation (Ollama)
-│   ├── formatter.py        # Stage 4: chat template formatting
-│   ├── evaluator.py        # Stage 6: ROUGE-L evaluation
-│   ├── plot_eval.py        # Stage 7: evaluation chart
-│   ├── burn_gguf.py        # Stage 8: GGUF export for Ollama
-│   └── run_pipeline.py     # Pipeline orchestrator
-├── eval/
-│   └── rouge_chart.png     # Evaluation results chart
-├── data/                   # Generated (not committed)
-├── ATP_Finetune_MLX.ipynb  # Apple Silicon notebook
-├── ATP_Finetune_Colab.ipynb  # Google Colab notebook
-├── run_overnight.sh        # One-command overnight run
-├── requirements.txt
-└── RUNBOOK.md              # Detailed operational notes
+```text
+scripts/
+  chunker.py          # PDF to doctrine chunks
+  enricher.py         # Metadata classification
+  generator.py        # QA generation via Ollama
+  formatter.py        # Gemma chat-template formatting
+  evaluator.py        # Base vs fine-tuned ROUGE-L evaluation
+  plot_eval.py        # Dark theme ROUGE-L chart
+  burn_gguf.py        # GGUF export for Ollama
+  run_pipeline.py     # Pipeline orchestrator
+eval/
+  results.jsonl       # Per-example evaluation records
+  rouge_chart.png     # Evaluation chart
+data/
+  train.jsonl         # Formatted training split
+  val.jsonl           # Formatted validation split
+ATP_Finetune_MLX.ipynb
+ATP_Finetune_Colab.ipynb
+run_overnight.sh
+requirements.txt
+RUNBOOK.md
 ```
 
 ---
 
-## Requirements
-
-```
-requests>=2.31.0
-pypdf>=6.0.0
-rouge-score>=0.1.2
-matplotlib
-numpy
-```
-
-MLX-specific (install separately):
-```bash
-pip install mlx-lm
-```
-
-Colab-specific:
-```bash
-pip install unsloth pdfplumber datasets trl
-```
+*This tutorial was developed for the ATP 2-01.3 doctrine assistant fine-tuning pipeline.*
+*Fine-tuning paths: MLX + LoRA on Apple Silicon and Unsloth + QLoRA on Google Colab T4.*
