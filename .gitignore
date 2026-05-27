@@ -21,8 +21,9 @@ data/train.jsonl
 data/val.jsonl
 eval/results/
 
-# ── Keep eval questions ────────────────────────────────────────
+# ── Keep eval questions and chart ─────────────────────────────
 !eval/questions.json
+!eval/score_chart.png
 
 # ── Python ────────────────────────────────────────────────────
 __pycache__/
